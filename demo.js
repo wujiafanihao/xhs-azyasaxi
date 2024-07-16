@@ -333,7 +333,7 @@
             // 定义一个函数来提取评论信息
             const extractComment = () => {
                 // 获取所有非 reply-container 的评论用户信息
-                const commentItems = appDiv.querySelectorAll('div.parent-comment > div.comment-item:not(.reply-container)');
+                const commentItems = document.querySelectorAll('div.parent-comment > div.comment-item:not(.reply-container)');
                 
                 console.log(commentItems);
     
@@ -372,7 +372,7 @@
     
             // 定义一个函数来滚动页面并检查加载完成
             const scrollPage = () => {
-                const commentsContainer = appDiv.querySelector('div.note-scroller');
+                const commentsContainer = document.querySelector('div.note-scroller');
                 if (commentsContainer) {
                     commentsContainer.scrollTop = commentsContainer.scrollHeight;
                     const currentHeight = commentsContainer.scrollHeight;

@@ -4,9 +4,36 @@ import json
 
 def get_note_info(url):
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)  # 无头模式，不显示浏览器界面
-        page = browser.new_page()
+        browser = p.chromium.launch(headless=False)  # 非无头模式，显示浏览器界面
+        context = browser.new_context(
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+        )
+        page = context.new_page()
+        
+        # 设置请求头
+        context.set_extra_http_headers({
+            'Referer': 'https://www.xiaohongshu.com/',
+            'Accept-Language': 'zh-CN,zh;q=0.9'
+        })
+        
+        # 设置 Cookie
+        cookies = [
+            {'name': 'your_cookie_name', 'value': 'your_cookie_value', 'url': url}
+        ]
+        context.add_cookies(cookies)
+        
         page.goto(url)
+        
+        # 等待页面加载完成
+        page.wait_for_timeout(5000)  # 增加等待时间到5秒
+        
+        # 处理滑块验证
+        try:
+            page.wait_for_selector('.captcha-verify-image', timeout=10000)
+            print("滑块验证出现，请手动处理验证")
+            input("按 Enter 键继续...")
+        except:
+            pass
         
         # 模拟滚动页面
         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
