@@ -1,0 +1,48 @@
+playwright install chromium
+pip install playwright -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install beautifulsoup4 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install requests -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+textual<=0.63.0
+pyperclip>=1.9.0
+lxml>=5.2.2
+PyYAML>=6.0.1
+aiosqlite>=0.20.0
+click>=8.1.7
+browser_cookie3>=0.19.1
+httpx>=0.27.0
+fastapi>=0.111.0
+uvicorn>=0.30.1
+这里有什么爬虫的库吗
+
+在您提供的库列表中，有几个库可以用于爬虫相关的任务，但并不是专门为爬虫设计的库。以下是这些库的简要说明：
+
+lxml (>=5.2.2):
+
+lxml 是一个用于解析 XML 和 HTML 的库，它非常快速且功能丰富。它可以与 requests 库结合使用，从网页中提取数据。
+
+httpx (>=0.27.0):
+
+httpx 是一个现代的 HTTP 客户端库，支持同步和异步请求。它可以用于发送 HTTP 请求并获取网页内容，是 requests 库的一个很好的替代品。
+
+browser_cookie3 (>=0.19.1):
+
+browser_cookie3 是一个用于从浏览器中提取 cookie 的库。这在需要模拟登录状态进行爬虫时非常有用。
+
+虽然这些库可以用于爬虫任务，但它们并不是专门的爬虫库。如果您需要进行网页抓取和数据提取，可能还需要考虑使用专门的爬虫库，如 Scrapy 或 BeautifulSoup。
+
+以下是一些常用的爬虫库：
+
+Scrapy:
+
+一个强大的爬虫框架，适用于复杂的爬虫任务。
+
+BeautifulSoup:
+
+一个用于解析 HTML 和 XML 文档的库，常与 requests 库一起使用。
+
+Selenium:
+
+一个自动化测试工具，可以用于模拟浏览器行为，适用于需要 JavaScript 渲染的网页。
+
+根据您的具体需求，您可以选择合适的库来构建您的爬虫应用。
