@@ -97,7 +97,7 @@
         <div class="xhs-helper-item" id="download-comments">下载评论</div>
         <div class="xhs-helper-item" id="extract-user-info">提取用户信息</div>
         <div class="xhs-helper-item" id="download-no-watermark-video">无水印下载</div>
-        <div class="xhs-helper-item">功能待开发</div>
+        <div class="xhs-helper-item" id="all-note-info">获取搜索页面目前文章</div>
             </div>
     `;
     document.body.appendChild(helper);
@@ -719,5 +719,391 @@
             }
         };
         extractDownloadLinks();
+    });
+
+    //一键获取
+    document.getElementById('all-note-info').addEventListener('click', async () => {
+
+        const optionContainer = document.createElement('div');
+        optionContainer.style.position = 'fixed';
+        optionContainer.style.top = '100px';
+        optionContainer.style.right = '10px';
+        optionContainer.style.backgroundColor = '#fff';
+        optionContainer.style.border = '1px solid #ccc';
+        optionContainer.style.borderRadius = '10px';
+        optionContainer.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
+        optionContainer.style.padding = '10px';
+        optionContainer.style.zIndex = '1002';
+
+        const normalOption = document.createElement('button');
+        normalOption.textContent = '正常获取';
+        normalOption.style.display = 'block';
+        normalOption.style.marginBottom = '10px';
+        normalOption.style.padding = '5px 10px';
+        normalOption.style.border = 'none';
+        normalOption.style.backgroundColor = '#4CAF50';
+        normalOption.style.color = 'white';
+        normalOption.style.borderRadius = '5px';
+        normalOption.style.cursor = 'pointer';
+
+        const filterOption = document.createElement('div');
+        filterOption.style.display = 'block';
+
+        const filterLabel = document.createElement('label');
+        filterLabel.textContent = '匹配字符获取:';
+        filterLabel.style.display = 'block';
+        filterLabel.style.marginBottom = '5px';
+
+        const filterInput = document.createElement('input');
+        filterInput.type = 'text';
+        filterInput.style.display = 'block';
+        filterInput.style.marginBottom = '10px';
+        filterInput.style.padding = '5px';
+        filterInput.style.width = '100%';
+
+        const filterButton = document.createElement('button');
+        filterButton.textContent = '筛选获取';
+        filterButton.style.padding = '5px 10px';
+        filterButton.style.border = 'none';
+        filterButton.style.backgroundColor = '#2196F3';
+        filterButton.style.color = 'white';
+        filterButton.style.borderRadius = '5px';
+        filterButton.style.cursor = 'pointer';
+
+        filterOption.appendChild(filterLabel);
+        filterOption.appendChild(filterInput);
+        filterOption.appendChild(filterButton);
+
+        optionContainer.appendChild(normalOption);
+        optionContainer.appendChild(filterOption);
+
+        document.body.appendChild(optionContainer);
+
+        normalOption.addEventListener('click', async () => {
+            document.body.removeChild(optionContainer);
+            await fetchNotes();
+        });
+
+        filterButton.addEventListener('click', async () => {
+            const filterKeywords = filterInput.value.split('|').map(keyword => keyword.trim());
+            document.body.removeChild(optionContainer);
+            await fetchNotes(filterKeywords);
+        });
+
+        function infosimulateScroll() {
+            return new Promise((resolve) => {
+                let scrollAttempts = 0;
+                const maxScrollAttempts = 10;  // 增加最大尝试次数
+                const scrollInterval = 10;  // 滚动间隔时间（毫秒）
+                const loadCheckInterval = 100;  // 检查新内容的间隔时间（毫秒）
+
+                function triggerScroll() {
+                    if (scrollAttempts >= maxScrollAttempts) {
+                        console.log("达到最大滚动次数，停止加载");
+                        resolve();
+                        return;
+                    }
+
+                    // 滚动到页面底部
+                    window.scrollTo(0, document.documentElement.scrollHeight);
+                    scrollAttempts++;
+
+                    // 触发滚动事件
+                    window.dispatchEvent(new Event('scroll'));
+
+                    setTimeout(() => {
+                        const currentHeight = document.documentElement.scrollHeight;
+                        if (currentHeight > lastHeight) {
+                            console.log(`新内容加载中，当前高度: ${currentHeight}`);
+                            lastHeight = currentHeight;
+                            setTimeout(triggerScroll, loadCheckInterval);
+                        } else {
+                            console.log("检测是否还有新内容...");
+                            // 再次尝试滚动，以确保没有更多内容
+                            setTimeout(triggerScroll, scrollInterval);
+                        }
+                    }, loadCheckInterval);
+                }
+
+                let lastHeight = document.documentElement.scrollHeight;
+                triggerScroll();
+            });
+        }
+
+        async function fetchNotes(filterKeywords = []) {
+            await infosimulateScroll();
+            const extractNoteInfo = (iframeWindow) => {
+                return new Promise((resolve) => {
+                    const checkInitialState = () => {
+                        if (iframeWindow && iframeWindow.__INITIAL_STATE__) {
+                            const noteId = iframeWindow.location.pathname.split('/').pop();
+                            console.log(noteId)
+                            console.log(iframeWindow.__INITIAL_STATE__)
+                            if (iframeWindow.__INITIAL_STATE__.note && iframeWindow.__INITIAL_STATE__.note.noteDetailMap && iframeWindow.__INITIAL_STATE__.note.noteDetailMap[noteId]) {
+                                resolve(iframeWindow.__INITIAL_STATE__.note.noteDetailMap[noteId]);
+                            } else {
+                                console.error("无法在__INITIAL_STATE__中找到noteDetailMap或特定noteId");
+                                resolve(null);
+                            }
+                        } else {
+                            // 如果还没加载完，等待一段时间后再次检查
+                            setTimeout(checkInitialState, 100);
+                        }
+                    };
+                    checkInitialState();
+                });
+            };
+
+            const extractAllNoteInfo = () => {
+                if (win.__INITIAL_STATE__ && win.__INITIAL_STATE__.search && win.__INITIAL_STATE__.search.feeds && win.__INITIAL_STATE__.search.feeds._rawValue) {
+                    return win.__INITIAL_STATE__.search.feeds._rawValue;
+                }
+                console.error("无法从全局window获取__INITIAL_STATE__或search.feeds");
+                return null;
+            };
+
+            const extractCommentDetails = (noteInfo, filterKeywords) => {
+                if (noteInfo && noteInfo.comments && noteInfo.comments.list) {
+                    const currentTime = noteInfo.currentTime;
+                    const comments = noteInfo.comments.list.map(comment => ({
+                        content: comment.content,
+                        createTime: comment.createTime,
+                        timeDifference: calculateTimeDifference(comment.createTime, currentTime),
+                        ipLocation: comment.ipLocation,
+                        userInfo: {
+                            nickname: comment.userInfo.nickname,
+                            userId: comment.userInfo.userId
+                        }
+                    })).filter(comment => {
+                        if (filterKeywords.length === 0) return true;
+                        return filterKeywords.some(keyword => comment.content.includes(keyword));
+                    });
+                    const noteDetails = {
+                        desc: noteInfo.note.desc,
+                        time: noteInfo.note.time,
+                        title: noteInfo.note.title,
+                        ipLocation: noteInfo.note.ipLocation,
+                        interactInfo: {
+                            collectedCount: noteInfo.note.interactInfo.collectedCount,
+                            commentCount: noteInfo.note.interactInfo.commentCount,
+                            likedCount: noteInfo.note.interactInfo.likedCount,
+                            shareCount: noteInfo.note.interactInfo.shareCount
+                        },
+                        user: {
+                            nickname: noteInfo.note.user.nickname
+                        }
+                    };
+
+                    return {
+                        comments,
+                        currentTime,
+                        noteDetails
+                    };
+                } else {
+                    console.error("comments 或 list 未定义");
+                    return {
+                        comments: [],
+                        noteDetails: {}
+                    };
+                }
+            };
+
+            function calculateTimeDifference(createTime, currentTime) {
+                const diff = currentTime - createTime;
+                const minutes = Math.floor(diff / 60000);
+                const hours = Math.floor(minutes / 60);
+                const days = Math.floor(hours / 24);
+
+                if (days > 0) return `${days}天前`;
+                if (hours > 0) return `${hours}小时前`;
+                if (minutes > 0) return `${minutes}分钟前`;
+                return '刚刚';
+            }
+
+            const extractAndSaveDetails = async (iframeWindow, filterKeywords) => {
+                const noteInfo = await extractNoteInfo(iframeWindow);
+                console.log(noteInfo);
+                if (noteInfo) {
+                    const details = extractCommentDetails(noteInfo, filterKeywords);
+                    if (details.comments.length > 0) {
+                        saveToCSV(details, details.noteDetails);
+                        saveTextToCSV(details.noteDetails);
+                    } else {
+                        console.log("笔记评论为空，跳过保存操作");
+                    }
+                } else {
+                    console.error("无法获取笔记信息");
+                }
+            };
+
+            const saveToCSV = (details, noteDetails) => {
+                let csvContent = "\uFEFF内容,发布时间,时间差,IP位置,用户昵称,用户ID\n";
+                details.comments.forEach(comment => {
+                    csvContent += `"${comment.content}","${comment.createTime}","${comment.timeDifference}","${comment.ipLocation}","${comment.userInfo.nickname}","${comment.userInfo.userId}"\n`;
+                });
+                const filename = noteDetails.title;
+                downloadCSV(csvContent, `${filename}comments.csv`);
+            };
+
+            const saveTextToCSV = (noteDetails) => {
+                let csvContent = "\uFEFF描述,时间,标题,IP位置,收藏数,评论数,点赞数,分享数,用户昵称\n";
+                csvContent += `"${noteDetails.desc}","${noteDetails.time}","${noteDetails.title}","${noteDetails.ipLocation}","${noteDetails.interactInfo.collectedCount}","${noteDetails.interactInfo.commentCount}","${noteDetails.interactInfo.likedCount}","${noteDetails.interactInfo.shareCount}","${noteDetails.user.nickname}"\n`;
+                const filename = noteDetails.title;
+                downloadCSV(csvContent, `${filename}note_details.csv`);
+            };
+
+            const downloadCSV = (content, filename) => {
+                const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                if (link.download !== undefined) {
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", filename);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+            };
+
+            function simulateScroll(iframeDocument) {
+                return new Promise((resolve) => {
+                    const noteContainer = iframeDocument.getElementById('noteContainer');
+                    if (!noteContainer) {
+                        console.error("未找到目标元素");
+                        resolve();
+                        return;
+                    }
+
+                    let previousHeight = 0;
+                    let scrollCount = 0;
+                    const maxScrolls = 2;
+                    const scrollStep = 5000; // 每次滚动的步长
+                    const waitTime = 1500; // 每次滚动后等待的时间
+
+                    const scrollPage = () => {
+                        if (shouldStop) {
+                            clearInterval(scrollInterval);
+                            resolve();
+                            return;
+                        }
+                        noteContainer.scrollTop += scrollStep;
+                        const currentHeight = noteContainer.scrollHeight;
+
+                        console.log(`当前高度: ${currentHeight}, 之前高度: ${previousHeight}`); // 添加调试信息
+
+                        if (currentHeight > previousHeight) {
+                            previousHeight = currentHeight;
+                            scrollCount = 0; // 重置滚动次数
+                        } else {
+                            scrollCount++;
+                            console.log(`滚动次数: ${scrollCount}`); // 添加调试信息
+                            if (scrollCount >= maxScrolls) {
+                                clearInterval(scrollInterval);
+                                console.log("达到最大滚动次数，开始提取数据");
+                                resolve();
+                            }
+                        }
+                    };
+
+                    const scrollInterval = setInterval(scrollPage, waitTime); // 增加滚动间隔时间
+                });
+            }
+
+            let shouldStop = false; // 全局状态，用于控制是否停止获取笔记
+
+            async function simulateNotePageVisit(noteId, index, total, filterKeywords) {
+                return new Promise((resolve, reject) => {
+                    if (shouldStop) {
+                        resolve();
+                        return;
+                    }
+
+                    const url = `https://www.xiaohongshu.com/explore/${noteId}`;
+                    const container = document.createElement('div');
+                    container.className = 'note-scroller';
+                    container.style.position = 'fixed';
+                    container.style.top = '50px';
+                    container.style.right = '10px';
+                    container.style.width = '500px';
+                    container.style.height = '800px';
+                    container.style.backgroundColor = '#f0f0f0';
+                    container.style.border = '1px solid #ccc';
+                    container.style.borderRadius = '10px'; // 圆角边框
+                    container.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)'; // 阴影效果
+                    container.style.padding = '10px';
+                    container.style.zIndex = '1001';
+                    container.style.overflow = 'auto';
+
+                    const title = document.createElement('h3');
+                    title.textContent = `模拟访问笔记 ${index + 1}/${total}`;
+                    container.appendChild(title);
+
+                    const iframe = document.createElement('iframe');
+                    iframe.style.width = '100%';
+                    iframe.style.height = '800px';
+                    iframe.style.border = 'none';
+                    iframe.src = url;
+
+                    const closeButton = document.createElement('button');
+                    closeButton.textContent = '终止并关闭';
+                    closeButton.style.position = 'absolute';
+                    closeButton.style.top = '10px';
+                    closeButton.style.right = '10px';
+                    closeButton.style.padding = '5px 10px';
+                    closeButton.style.border = 'none';
+                    closeButton.style.backgroundColor = '#ff4d4d';
+                    closeButton.style.color = 'white';
+                    closeButton.style.borderRadius = '5px';
+                    closeButton.style.cursor = 'pointer';
+                    closeButton.onclick = () => {
+                        shouldStop = true; // 设置全局状态为停止
+                        clearInterval(scrollInterval);
+                        document.body.removeChild(container);
+                        resolve();
+                    };
+
+                    container.appendChild(closeButton);
+                    container.appendChild(iframe);
+                    document.body.appendChild(container);
+
+                    let scrollInterval;
+
+                    iframe.onload = async () => {
+                        const iframeWindow = iframe.contentWindow;
+                        const iframeDocument = iframeWindow.document;
+
+                        scrollInterval = await simulateScroll(iframeDocument);
+
+                        // 提取笔记信息并保存
+                        await extractAndSaveDetails(iframeWindow, filterKeywords);
+
+                        setTimeout(() => {
+                            document.body.removeChild(container);
+                            resolve();
+                        }, 2000);
+                    };
+
+                    iframe.onerror = (err) => {
+                        console.error("加载 iframe 失败", err);
+                        setTimeout(() => {
+                            document.body.removeChild(container);
+                            reject(err);
+                        }, 2000);
+                    };
+                });
+            }
+
+            const allNotes = extractAllNoteInfo();
+            if (allNotes && allNotes.length > 0) {
+                for (let i = 0; i < allNotes.length; i++) {
+                    const note = allNotes[i];
+                    console.log(note.id);
+                    await simulateNotePageVisit(note.id, i, allNotes.length, filterKeywords);
+                }
+            } else {
+                console.error("未获取到笔记信息");
+            }
+        }
     });
 })();
