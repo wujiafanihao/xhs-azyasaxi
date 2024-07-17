@@ -97,27 +97,27 @@
     `;
     document.body.appendChild(helper);
 
-const extractNoteInfo = (iframeWindow) => {
-    return new Promise((resolve) => {
-        const checkInitialState = () => {
-            if (iframeWindow && iframeWindow.__INITIAL_STATE__) {
-                const noteId = iframeWindow.location.pathname.split('/').pop();
-                console.log(noteId)
-                console.log(iframeWindow.__INITIAL_STATE__)
-                if (iframeWindow.__INITIAL_STATE__.note && iframeWindow.__INITIAL_STATE__.note.noteDetailMap && iframeWindow.__INITIAL_STATE__.note.noteDetailMap[noteId]) {
-                    resolve(iframeWindow.__INITIAL_STATE__.note.noteDetailMap[noteId]);
+    const extractNoteInfo = (iframeWindow) => {
+        return new Promise((resolve) => {
+            const checkInitialState = () => {
+                if (iframeWindow && iframeWindow.__INITIAL_STATE__) {
+                    const noteId = iframeWindow.location.pathname.split('/').pop();
+                    console.log(noteId)
+                    console.log(iframeWindow.__INITIAL_STATE__)
+                    if (iframeWindow.__INITIAL_STATE__.note && iframeWindow.__INITIAL_STATE__.note.noteDetailMap && iframeWindow.__INITIAL_STATE__.note.noteDetailMap[noteId]) {
+                        resolve(iframeWindow.__INITIAL_STATE__.note.noteDetailMap[noteId]);
+                    } else {
+                        console.error("无法在__INITIAL_STATE__中找到noteDetailMap或特定noteId");
+                        resolve(null);
+                    }
                 } else {
-                    console.error("无法在__INITIAL_STATE__中找到noteDetailMap或特定noteId");
-                    resolve(null);
+                    // 如果还没加载完，等待一段时间后再次检查
+                    setTimeout(checkInitialState, 100);
                 }
-            } else {
-                // 如果还没加载完，等待一段时间后再次检查
-                setTimeout(checkInitialState, 100);
-            }
-        };
-        checkInitialState();
-    });
-};
+            };
+            checkInitialState();
+        });
+    };
 
     const extractAllNoteInfo = () => {
         if (win.__INITIAL_STATE__ && win.__INITIAL_STATE__.search && win.__INITIAL_STATE__.search.feeds && win.__INITIAL_STATE__.search.feeds._rawValue) {
@@ -182,7 +182,9 @@ const extractNoteInfo = (iframeWindow) => {
         return '刚刚';
     }
 
-    const extractAndSaveDetails = (noteInfo) => {
+    const extractAndSaveDetails = async (iframeWindow) => {
+        const noteInfo = await extractNoteInfo(iframeWindow);
+        console.log(noteInfo);
         if (noteInfo) {
             const details = extractCommentDetails(noteInfo);
             saveToCSV(details);
@@ -295,12 +297,7 @@ const extractNoteInfo = (iframeWindow) => {
                     await simulateScroll(noteScroller, progressBar);
 
                     // 提取笔记信息并保存
-                    let noteInfo = extractNoteInfo(iframeWindow);
-                    if (noteInfo) {
-                        extractAndSaveDetails(noteInfo);
-                    } else {
-                        console.error("无法获取笔记信息");
-                    }
+                    await extractAndSaveDetails(iframeWindow);
                 } else {
                     console.error("未找到目标元素");
                     progressBar.style.backgroundColor = 'red';
