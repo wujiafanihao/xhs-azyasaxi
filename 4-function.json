@@ -97,229 +97,229 @@
     `;
     document.body.appendChild(helper);
 
-    const extractNoteInfo = (iframeWindow) => {
-        return new Promise((resolve) => {
-            const checkInitialState = () => {
-                if (iframeWindow && iframeWindow.__INITIAL_STATE__) {
-                    const noteId = iframeWindow.location.pathname.split('/').pop();
-                    console.log(noteId)
-                    console.log(iframeWindow.__INITIAL_STATE__)
-                    if (iframeWindow.__INITIAL_STATE__.note && iframeWindow.__INITIAL_STATE__.note.noteDetailMap && iframeWindow.__INITIAL_STATE__.note.noteDetailMap[noteId]) {
-                        resolve(iframeWindow.__INITIAL_STATE__.note.noteDetailMap[noteId]);
-                    } else {
-                        console.error("无法在__INITIAL_STATE__中找到noteDetailMap或特定noteId");
-                        resolve(null);
-                    }
-                } else {
-                    // 如果还没加载完，等待一段时间后再次检查
-                    setTimeout(checkInitialState, 100);
-                }
-            };
-            checkInitialState();
-        });
-    };
-
-    const extractAllNoteInfo = () => {
-        if (win.__INITIAL_STATE__ && win.__INITIAL_STATE__.search && win.__INITIAL_STATE__.search.feeds && win.__INITIAL_STATE__.search.feeds._rawValue) {
-            return win.__INITIAL_STATE__.search.feeds._rawValue;
-        }
-        console.error("无法从全局window获取__INITIAL_STATE__或search.feeds");
-        return null;
-    };
-
-    const extractCommentDetails = (noteInfo) => {
-        if (noteInfo && noteInfo.comments && noteInfo.comments.list) {
-            const currentTime = noteInfo.currentTime;
-            const comments = noteInfo.comments.list.map(comment => ({
-                content: comment.content,
-                createTime: comment.createTime,
-                timeDifference: calculateTimeDifference(comment.createTime, currentTime),
-                ipLocation: comment.ipLocation,
-                userInfo: {
-                    nickname: comment.userInfo.nickname,
-                    userId: comment.userInfo.userId
-                }
-            }));
-            const noteDetails = {
-                desc: noteInfo.note.desc,
-                time: noteInfo.note.time,
-                title: noteInfo.note.title,
-                ipLocation: noteInfo.note.ipLocation,
-                interactInfo: {
-                    collectedCount: noteInfo.note.interactInfo.collectedCount,
-                    commentCount: noteInfo.note.interactInfo.commentCount,
-                    likedCount: noteInfo.note.interactInfo.likedCount,
-                    shareCount: noteInfo.note.interactInfo.shareCount
-                },
-                user: {
-                    nickname: noteInfo.note.user.nickname
-                }
-            };
-
-            return {
-                comments,
-                currentTime,
-                noteDetails
-            };
-        } else {
-            console.error("comments 或 list 未定义");
-            return {
-                comments: [],
-                noteDetails: {}
-            };
-        }
-    };
-
-    function calculateTimeDifference(createTime, currentTime) {
-        const diff = currentTime - createTime;
-        const minutes = Math.floor(diff / 60000);
-        const hours = Math.floor(minutes / 60);
-        const days = Math.floor(hours / 24);
-
-        if (days > 0) return `${days}天前`;
-        if (hours > 0) return `${hours}小时前`;
-        if (minutes > 0) return `${minutes}分钟前`;
-        return '刚刚';
-    }
-
-    const extractAndSaveDetails = async (iframeWindow) => {
-        const noteInfo = await extractNoteInfo(iframeWindow);
-        console.log(noteInfo);
-        if (noteInfo) {
-            const details = extractCommentDetails(noteInfo);
-            saveToCSV(details);
-            saveTextToCSV(details.noteDetails);
-        } else {
-            console.error("无法获取笔记信息");
-        }
-    };
-
-    const saveToCSV = (details) => {
-        let csvContent = "内容,发布时间,时间差,IP位置,用户昵称,用户ID\n";
-        details.comments.forEach(comment => {
-            csvContent += `"${comment.content}","${comment.createTime}","${comment.timeDifference}","${comment.ipLocation}","${comment.userInfo.nickname}","${comment.userInfo.userId}"\n`;
-        });
-        downloadCSV(csvContent, "comments.csv");
-    };
-
-    const saveTextToCSV = (noteDetails) => {
-        let csvContent = "描述,时间,标题,IP位置,收藏数,评论数,点赞数,分享数,用户昵称\n";
-        csvContent += `"${noteDetails.desc}","${noteDetails.time}","${noteDetails.title}","${noteDetails.ipLocation}","${noteDetails.interactInfo.collectedCount}","${noteDetails.interactInfo.commentCount}","${noteDetails.interactInfo.likedCount}","${noteDetails.interactInfo.shareCount}","${noteDetails.user.nickname}"\n`;
-        downloadCSV(csvContent, "note_details.csv");
-    };
-
-    const downloadCSV = (content, filename) => {
-        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        if (link.download !== undefined) {
-            const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            link.setAttribute("download", filename);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-    };
-
-    function simulateScroll(element, progressBar) {
-        return new Promise((resolve) => {
-            if (!element) {
-                console.error("未找到目标元素");
-                resolve();
-                return;
-            }
-            let scrollTop = 0;
-            const interval = setInterval(() => {
-                element.scrollTop += 100;
-                scrollTop = element.scrollTop;
-                const progress = (scrollTop / (element.scrollHeight - element.clientHeight)) * 100;
-                progressBar.style.width = `${progress}%`;
-                if (scrollTop >= element.scrollHeight - element.clientHeight) {
-                    clearInterval(interval);
-                    console.log("滚动到底部");
-                    progressBar.style.backgroundColor = '#4CAF50';
-                    resolve();
-                }
-            }, 100);
-        });
-    }
-
-    async function simulateNotePageVisit(noteId, index, total) {
-        return new Promise((resolve, reject) => {
-            const url = `https://www.xiaohongshu.com/explore/${noteId}`;
-            const container = document.createElement('div');
-            container.className = 'note-scroller';
-            container.style.position = 'fixed';
-            container.style.top = '50px';
-            container.style.right = '10px';
-            container.style.width = '500px';
-            container.style.height = '800px';
-            container.style.backgroundColor = '#f0f0f0';
-            container.style.border = '1px solid #ccc';
-            container.style.padding = '10px';
-            container.style.zIndex = '1001';
-            container.style.overflow = 'auto';
-
-            const title = document.createElement('h3');
-            title.textContent = `模拟访问笔记 ${index + 1}/${total}`;
-            container.appendChild(title);
-
-            const iframe = document.createElement('iframe');
-            iframe.style.width = '100%';
-            iframe.style.height = '800px';
-            iframe.style.border = 'none';
-            iframe.src = url;
-
-            const progressBarContainer = document.createElement('div');
-            progressBarContainer.style.width = '100%';
-            progressBarContainer.style.height = '20px';
-            progressBarContainer.style.backgroundColor = '#ddd';
-            progressBarContainer.style.marginTop = '10px';
-
-            const progressBar = document.createElement('div');
-            progressBar.style.width = '0%';
-            progressBar.style.height = '100%';
-            progressBar.style.backgroundColor = '#4CAF50';
-            progressBar.style.transition = 'width 0.5s';
-
-            progressBarContainer.appendChild(progressBar);
-            container.appendChild(iframe);
-            container.appendChild(progressBarContainer);
-            document.body.appendChild(container);
-
-            iframe.onload = async () => {
-                const iframeWindow = iframe.contentWindow;
-                const iframeDocument = iframeWindow.document;
-
-                const noteScroller = iframeDocument.querySelector('div.note-scroller');
-                if (noteScroller) {
-                    await simulateScroll(noteScroller, progressBar);
-
-                    // 提取笔记信息并保存
-                    await extractAndSaveDetails(iframeWindow);
-                } else {
-                    console.error("未找到目标元素");
-                    progressBar.style.backgroundColor = 'red';
-                }
-                setTimeout(() => {
-                    document.body.removeChild(container);
-                    resolve();
-                }, 2000);
-            };
-
-            iframe.onerror = (err) => {
-                console.error("加载 iframe 失败", err);
-                progressBar.style.backgroundColor = 'red';
-                setTimeout(() => {
-                    document.body.removeChild(container);
-                    reject(err);
-                }, 2000);
-            };
-        });
-    }
-
     document.getElementById('all-note-info').addEventListener('click', async () => {
+        const extractNoteInfo = (iframeWindow) => {
+            return new Promise((resolve) => {
+                const checkInitialState = () => {
+                    if (iframeWindow && iframeWindow.__INITIAL_STATE__) {
+                        const noteId = iframeWindow.location.pathname.split('/').pop();
+                        console.log(noteId)
+                        console.log(iframeWindow.__INITIAL_STATE__)
+                        if (iframeWindow.__INITIAL_STATE__.note && iframeWindow.__INITIAL_STATE__.note.noteDetailMap && iframeWindow.__INITIAL_STATE__.note.noteDetailMap[noteId]) {
+                            resolve(iframeWindow.__INITIAL_STATE__.note.noteDetailMap[noteId]);
+                        } else {
+                            console.error("无法在__INITIAL_STATE__中找到noteDetailMap或特定noteId");
+                            resolve(null);
+                        }
+                    } else {
+                        // 如果还没加载完，等待一段时间后再次检查
+                        setTimeout(checkInitialState, 100);
+                    }
+                };
+                checkInitialState();
+            });
+        };
+
+        const extractAllNoteInfo = () => {
+            if (win.__INITIAL_STATE__ && win.__INITIAL_STATE__.search && win.__INITIAL_STATE__.search.feeds && win.__INITIAL_STATE__.search.feeds._rawValue) {
+                return win.__INITIAL_STATE__.search.feeds._rawValue;
+            }
+            console.error("无法从全局window获取__INITIAL_STATE__或search.feeds");
+            return null;
+        };
+
+        const extractCommentDetails = (noteInfo) => {
+            if (noteInfo && noteInfo.comments && noteInfo.comments.list) {
+                const currentTime = noteInfo.currentTime;
+                const comments = noteInfo.comments.list.map(comment => ({
+                    content: comment.content,
+                    createTime: comment.createTime,
+                    timeDifference: calculateTimeDifference(comment.createTime, currentTime),
+                    ipLocation: comment.ipLocation,
+                    userInfo: {
+                        nickname: comment.userInfo.nickname,
+                        userId: comment.userInfo.userId
+                    }
+                }));
+                const noteDetails = {
+                    desc: noteInfo.note.desc,
+                    time: noteInfo.note.time,
+                    title: noteInfo.note.title,
+                    ipLocation: noteInfo.note.ipLocation,
+                    interactInfo: {
+                        collectedCount: noteInfo.note.interactInfo.collectedCount,
+                        commentCount: noteInfo.note.interactInfo.commentCount,
+                        likedCount: noteInfo.note.interactInfo.likedCount,
+                        shareCount: noteInfo.note.interactInfo.shareCount
+                    },
+                    user: {
+                        nickname: noteInfo.note.user.nickname
+                    }
+                };
+
+                return {
+                    comments,
+                    currentTime,
+                    noteDetails
+                };
+            } else {
+                console.error("comments 或 list 未定义");
+                return {
+                    comments: [],
+                    noteDetails: {}
+                };
+            }
+        };
+
+        function calculateTimeDifference(createTime, currentTime) {
+            const diff = currentTime - createTime;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+
+            if (days > 0) return `${days}天前`;
+            if (hours > 0) return `${hours}小时前`;
+            if (minutes > 0) return `${minutes}分钟前`;
+            return '刚刚';
+        }
+
+        const extractAndSaveDetails = async (iframeWindow) => {
+            const noteInfo = await extractNoteInfo(iframeWindow);
+            console.log(noteInfo);
+            if (noteInfo) {
+                const details = extractCommentDetails(noteInfo);
+                saveToCSV(details);
+                saveTextToCSV(details.noteDetails);
+            } else {
+                console.error("无法获取笔记信息");
+            }
+        };
+
+        const saveToCSV = (details) => {
+            let csvContent = "内容,发布时间,时间差,IP位置,用户昵称,用户ID\n";
+            details.comments.forEach(comment => {
+                csvContent += `"${comment.content}","${comment.createTime}","${comment.timeDifference}","${comment.ipLocation}","${comment.userInfo.nickname}","${comment.userInfo.userId}"\n`;
+            });
+            downloadCSV(csvContent, "comments.csv");
+        };
+
+        const saveTextToCSV = (noteDetails) => {
+            let csvContent = "描述,时间,标题,IP位置,收藏数,评论数,点赞数,分享数,用户昵称\n";
+            csvContent += `"${noteDetails.desc}","${noteDetails.time}","${noteDetails.title}","${noteDetails.ipLocation}","${noteDetails.interactInfo.collectedCount}","${noteDetails.interactInfo.commentCount}","${noteDetails.interactInfo.likedCount}","${noteDetails.interactInfo.shareCount}","${noteDetails.user.nickname}"\n`;
+            downloadCSV(csvContent, "note_details.csv");
+        };
+
+        const downloadCSV = (content, filename) => {
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        };
+
+        function simulateScroll(element, progressBar) {
+            return new Promise((resolve) => {
+                if (!element) {
+                    console.error("未找到目标元素");
+                    resolve();
+                    return;
+                }
+                let scrollTop = 0;
+                const interval = setInterval(() => {
+                    element.scrollTop += 100;
+                    scrollTop = element.scrollTop;
+                    const progress = (scrollTop / (element.scrollHeight - element.clientHeight)) * 100;
+                    progressBar.style.width = `${progress}%`;
+                    if (scrollTop >= element.scrollHeight - element.clientHeight) {
+                        clearInterval(interval);
+                        console.log("滚动到底部");
+                        progressBar.style.backgroundColor = '#4CAF50';
+                        resolve();
+                    }
+                }, 100);
+            });
+        }
+
+        async function simulateNotePageVisit(noteId, index, total) {
+            return new Promise((resolve, reject) => {
+                const url = `https://www.xiaohongshu.com/explore/${noteId}`;
+                const container = document.createElement('div');
+                container.className = 'note-scroller';
+                container.style.position = 'fixed';
+                container.style.top = '50px';
+                container.style.right = '10px';
+                container.style.width = '500px';
+                container.style.height = '800px';
+                container.style.backgroundColor = '#f0f0f0';
+                container.style.border = '1px solid #ccc';
+                container.style.padding = '10px';
+                container.style.zIndex = '1001';
+                container.style.overflow = 'auto';
+
+                const title = document.createElement('h3');
+                title.textContent = `模拟访问笔记 ${index + 1}/${total}`;
+                container.appendChild(title);
+
+                const iframe = document.createElement('iframe');
+                iframe.style.width = '100%';
+                iframe.style.height = '800px';
+                iframe.style.border = 'none';
+                iframe.src = url;
+
+                const progressBarContainer = document.createElement('div');
+                progressBarContainer.style.width = '100%';
+                progressBarContainer.style.height = '20px';
+                progressBarContainer.style.backgroundColor = '#ddd';
+                progressBarContainer.style.marginTop = '10px';
+
+                const progressBar = document.createElement('div');
+                progressBar.style.width = '0%';
+                progressBar.style.height = '100%';
+                progressBar.style.backgroundColor = '#4CAF50';
+                progressBar.style.transition = 'width 0.5s';
+
+                progressBarContainer.appendChild(progressBar);
+                container.appendChild(iframe);
+                container.appendChild(progressBarContainer);
+                document.body.appendChild(container);
+
+                iframe.onload = async () => {
+                    const iframeWindow = iframe.contentWindow;
+                    const iframeDocument = iframeWindow.document;
+
+                    const noteScroller = iframeDocument.querySelector('div.note-scroller');
+                    if (noteScroller) {
+                        await simulateScroll(noteScroller, progressBar);
+
+                        // 提取笔记信息并保存
+                        await extractAndSaveDetails(iframeWindow);
+                    } else {
+                        console.error("未找到目标元素");
+                        progressBar.style.backgroundColor = 'red';
+                    }
+                    setTimeout(() => {
+                        document.body.removeChild(container);
+                        resolve();
+                    }, 2000);
+                };
+
+                iframe.onerror = (err) => {
+                    console.error("加载 iframe 失败", err);
+                    progressBar.style.backgroundColor = 'red';
+                    setTimeout(() => {
+                        document.body.removeChild(container);
+                        reject(err);
+                    }, 2000);
+                };
+            });
+        }
+
         const allNotes = extractAllNoteInfo();
         if (allNotes && allNotes.length > 0) {
             for (let i = 0; i < allNotes.length; i++) {
