@@ -9,6 +9,8 @@
 // @match        http*://www.xiaohongshu.com/user/profile/*
 // @match        http*://www.xiaohongshu.com/search_result*
 // @grant        unsafeWindow
+// @grant        GM_download
+// @grant        GM_xmlhttpRequest
 // @author       wujiafa azyasaxi
 // ==/UserScript==
 
@@ -94,9 +96,9 @@
     <div id="xhs-helper-menu">
         <div class="xhs-helper-item" id="download-comments">下载评论</div>
         <div class="xhs-helper-item" id="extract-user-info">提取用户信息</div>
+        <div class="xhs-helper-item" id="download-no-watermark-video">无水印下载</div>
         <div class="xhs-helper-item">功能待开发</div>
-        <div class="xhs-helper-item">功能待开发</div>
-    </div>
+            </div>
     `;
     document.body.appendChild(helper);
 
@@ -234,34 +236,32 @@
                         `"${comment.ipLocation?.replace(/"/g, '""') ?? '未知IP位置'}"`,
                         `"${comment.content?.replace(/"/g, '""') ?? '未知评论内容'}"`
             ];
-            csvRows.push(row.join(','));
-        });
+                    csvRows.push(row.join(','));
+                });
 
-        const csvContent = '\ufeff' + csvRows.join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${noteDetails.title || '未知标题'} ${noteDetails.user.nickname || '未知用户'}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    } catch (error) {
-        console.error('保存CSV文件时出错:', error);
-    }
-};
+                const csvContent = '\ufeff' + csvRows.join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${noteDetails.title || '未知标题'} ${noteDetails.user.nickname || '未知用户'}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('保存CSV文件时出错:', error);
+            }
+        };
 
         const scrollInterval = setInterval(scrollPage, 1000);
     });
 
-    // 提取用户信息功能的主要监听器
+    //提取用户信息
     document.getElementById('extract-user-info').addEventListener('click', () => {
-        //console.log('提取用户信息按钮被点击');
         createInputModal();
 
         function createInputModal() {
-            //console.log('创建输入模态框');
             const modal = document.createElement('div');
             modal.id = 'user-info-modal';
 
@@ -319,164 +319,405 @@
             #close-modal:hover {
                 background-color: #da190b;
             }
+            #progress-bar-container {
+                width: 100%;
+                height: 20px;
+                background-color: #ddd;
+                margin-top: 20px;
+            }
+            #progress-bar {
+                height: 100%;
+                background-color: #4CAF50;
+                width: 0%;
+            }
         `;
-        document.head.appendChild(style);
+            document.head.appendChild(style);
 
-        modal.innerHTML = `
+            modal.innerHTML = `
             <h2>输入用户ID</h2>
-            <textarea id="user-ids" rows="10" cols="50" placeholder="每行输入一个用户ID"></textarea>
+            <textarea id="user-ids" rows="10" cols="50" placeholder="每行输入一个用户ID，实测50条用户稳定，100条用户页面请求可能过多导致崩溃，150条以上绝对崩溃，就按照50-100条来"></textarea>
             <br><br>
             <button id="extract-users">提取用户信息</button>
             <button id="close-modal">关闭</button>
+            <div id="progress-bar-container">
+                <div id="progress-bar"></div>
+            </div>
         `;
-        document.body.appendChild(modal);
+            document.body.appendChild(modal);
 
-        // 使用事件委托来处理按钮点击
-        modal.addEventListener('click', function(event) {
-            if (event.target.id === 'close-modal') {
-                //console.log('关闭按钮被点击');
-                document.body.removeChild(modal);
-                document.head.removeChild(style);
-            } else if (event.target.id === 'extract-users') {
-                //console.log('提取用户信息按钮被点击');
-                const userIds = document.getElementById('user-ids').value.split('\n').filter(id => id.trim());
-                //console.log('提取的用户ID:', userIds);
-                extractMultipleUserInfo(userIds);
-            }
-        });
-
-        // 添加按钮按下效果
-        const buttons = modal.querySelectorAll('button');
-        buttons.forEach(button => {
-            button.addEventListener('mousedown', function() {
-                this.style.transform = 'scale(0.95)';
-            });
-            button.addEventListener('mouseup', function() {
-                this.style.transform = 'scale(1)';
-            });
-            button.addEventListener('mouseleave', function() {
-                this.style.transform = 'scale(1)';
-            });
-        });
-    }
-
-    async function extractMultipleUserInfo(userIds) {
-        //console.log('开始提取多个用户信息');
-        const userInfoList = [];
-        for (const userId of userIds) {
-            try {
-                const userInfo = await simulateUserPageVisit(userId);
-                if (userInfo) {
-                    userInfoList.push(userInfo);
+            modal.addEventListener('click', function(event) {
+                if (event.target.id === 'close-modal') {
+                    document.body.removeChild(modal);
+                    document.head.removeChild(style);
+                } else if (event.target.id === 'extract-users') {
+                    const userIds = document.getElementById('user-ids').value.split('\n').filter(id => id.trim());
+                    extractMultipleUserInfo(userIds);
                 }
-            } catch (error) {
-                console.error(`提取用户 ${userId} 信息时出错:`, error);
-            }
+            });
+
+            const buttons = modal.querySelectorAll('button');
+            buttons.forEach(button => {
+                button.addEventListener('mousedown', function() {
+                    this.style.transform = 'scale(0.95)';
+                });
+                button.addEventListener('mouseup', function() {
+                    this.style.transform = 'scale(1)';
+                });
+                button.addEventListener('mouseleave', function() {
+                    this.style.transform = 'scale(1)';
+                });
+            });
         }
-        console.log('提取的用户信息:', userInfoList);
-        if (userInfoList.length > 0) {
-            saveToCSV(userInfoList);
-        } else {
-            console.log('没有成功提取任何用户信息');
-        }
-    }
 
-    async function simulateUserPageVisit(userId) {
-        //console.log(`模拟访问用户页面: ${userId}`);
-        return new Promise((resolve, reject) => {
-            const url = `https://www.xiaohongshu.com/user/profile/${userId}`;
+        async function extractMultipleUserInfo(userIds) {
+            const userInfoList = [];
+            const total = userIds.length;
+            let processed = 0;
+            const progressBar = document.getElementById('progress-bar');
 
-            // 创建一个隐藏的iframe来加载用户页面
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.src = url;
-            document.body.appendChild(iframe);
-
-            iframe.onload = () => {
+            for (const userId of userIds) {
                 try {
-                    // 尝试从iframe中提取用户信息
-                    const userInfo = iframe.contentWindow.__INITIAL_STATE__.user.userPageData._rawValue;
-                    const extractedInfo = extractUserDetails(userInfo);
-                    console.log(`提取到的用户信息:`, extractedInfo);
-                    document.body.removeChild(iframe);
-                    resolve(extractedInfo);
+                    const userInfo = await simulateUserPageVisit(userId);
+                    if (userInfo) {
+                        userInfoList.push(userInfo);
+                    }
                 } catch (error) {
                     console.error(`提取用户 ${userId} 信息时出错:`, error);
-                    document.body.removeChild(iframe);
-                    reject(error);
+                } finally {
+                    processed++;
+                    const progress = (processed / total) * 100;
+                    progressBar.style.width = `${progress}%`;
                 }
-            };
+            }
 
-            iframe.onerror = (error) => {
-                console.error(`加载用户 ${userId} 页面时出错:`, error);
-                document.body.removeChild(iframe);
-                reject(error);
-            };
-
-            // 设置超时，以防页面加载失败
-            setTimeout(() => {
-                if (document.body.contains(iframe)) {
-                    document.body.removeChild(iframe);
-                    reject(new Error(`提取用户 ${userId} 信息超时`));
-                }
-            }, 10000);  // 10秒超时
-        });
-    }
-
-    function extractUserDetails(userInfo) {
-        //console.log('开始提取用户详情');
-        if (userInfo && userInfo.basicInfo && userInfo.basicInfo.redId) {
-            const basicInfo = userInfo.basicInfo;
-            const interactions = userInfo.interactions;
-            const tags = userInfo.tags;
-
-            const locationTag = tags.find(tag => tag.tagType === 'location');
-
-            return {
-                nickname: basicInfo.nickname,
-                gender: basicInfo.gender === 1 ? '女' : '男',
-                redId: basicInfo.redId,
-                ipLocation: basicInfo.ipLocation,
-                fans: interactions.find(i => i.type === 'fans')?.count || 0,
-                likes: interactions.find(i => i.type === 'likes')?.count || 0,
-                location: locationTag ? locationTag.name : '未知'
-            };
-        }
-        console.log('用户信息格式不正确');
-        return null;
-    }
-
-    function saveToCSV(userInfoList) {
-        console.log('开始保存为CSV');
-        const headers = ['用户名', '性别', '小红书ID', 'IP位置', '粉丝', '获赞', '居住地'];
-        const csvRows = [headers.join(',')];
-
-        for (const user of userInfoList) {
-            if (user) {
-                const row = [
-                    `"${user.nickname.replace(/"/g, '""')}"`,
-                    user.gender,
-                    user.redId,
-                    `"${user.ipLocation.replace(/"/g, '""')}"`,
-                    user.fans,
-                    user.likes,
-                    `"${user.location.replace(/"/g, '""')}"`
-                ];
-                csvRows.push(row.join(','));
+            console.log('提取的用户信息:', userInfoList);
+            if (userInfoList.length > 0) {
+                saveToCSV(userInfoList);
+            } else {
+                console.log('没有成功提取任何用户信息');
             }
         }
 
-        const csvContent = '\ufeff' + csvRows.join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'user_info.csv';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        console.log('CSV文件已生成并下载');
-    }
-});
+        async function simulateUserPageVisit(userId) {
+            return new Promise((resolve, reject) => {
+                const url = `https://www.xiaohongshu.com/user/profile/${userId}`;
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = url;
+                document.body.appendChild(iframe);
+
+                iframe.onload = () => {
+                    try {
+                        const userInfo = iframe.contentWindow.__INITIAL_STATE__.user.userPageData._rawValue;
+                        const extractedInfo = extractUserDetails(userInfo);
+                        document.body.removeChild(iframe);
+                        resolve(extractedInfo);
+                    } catch (error) {
+                        document.body.removeChild(iframe);
+                        reject(error);
+                    }
+                };
+
+                iframe.onerror = (error) => {
+                    document.body.removeChild(iframe);
+                    reject(error);
+                };
+
+                setTimeout(() => {
+                    if (document.body.contains(iframe)) {
+                        document.body.removeChild(iframe);
+                        reject(new Error(`提取用户 ${userId} 信息超时`));
+                    }
+                }, 10000);
+            });
+        }
+
+        function extractUserDetails(userInfo) {
+            if (userInfo && userInfo.basicInfo && userInfo.basicInfo.redId) {
+                const basicInfo = userInfo.basicInfo;
+                const interactions = userInfo.interactions;
+                const tags = userInfo.tags;
+
+                const locationTag = tags.find(tag => tag.tagType === 'location');
+
+                return {
+                    nickname: basicInfo.nickname,
+                    gender: basicInfo.gender === 1 ? '女' : '男',
+                    redId: basicInfo.redId,
+                    ipLocation: basicInfo.ipLocation,
+                    fans: interactions.find(i => i.type === 'fans')?.count || 0,
+                    likes: interactions.find(i => i.type === 'likes')?.count || 0,
+                    location: locationTag ? locationTag.name : '未知'
+                };
+            }
+            return null;
+        }
+
+        function saveToCSV(userInfoList) {
+            const headers = ['用户名', '性别', '小红书ID', 'IP位置', '粉丝', '获赞', '居住地'];
+            const csvRows = [headers.join(',')];
+
+            for (const user of userInfoList) {
+                if (user) {
+                    const row = [
+                        `"${user.nickname.replace(/"/g, '""')}"`,
+                        user.gender,
+                        user.redId,
+                        `"${user.ipLocation.replace(/"/g, '""')}"`,
+                        user.fans,
+                        user.likes,
+                        `"${user.location.replace(/"/g, '""')}"`
+                ];
+                    csvRows.push(row.join(','));
+                }
+            }
+
+            const csvContent = '\ufeff' + csvRows.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'user_info.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    });
+
+    // 下载无水印视频功能
+    document.getElementById('download-no-watermark-video').addEventListener('click', async () => {
+        const abnormal = () => {
+            alert("下载无水印作品文件失败！");
+        };
+
+        const generateVideoUrl = note => {
+            try {
+                if (note.video && note.video.consumer) {
+                    return [`https://sns-video-bd.xhscdn.com/${note.video.consumer.originVideoKey}`];
+                } else {
+                    console.error("note.video 或 note.video.consumer 未定义");
+                    return [];
+                }
+            } catch (error) {
+                console.error("Error generating video URL:", error);
+                return [];
+            }
+        };
+
+        const generateImageUrl = note => {
+            let images = note.imageList;
+            const regex = /http:\/\/sns-webpic-qc\.xhscdn.com\/\d+\/[0-9a-z]+\/(\S+)!/;
+            let urls = [];
+            try {
+                images.forEach((item) => {
+                    let match = item.urlDefault.match(regex);
+                    if (match && match[1]) {
+                        urls.push(`https://ci.xiaohongshu.com/${match[1]}?imageView2/2/w/format/png`);
+                    }
+                });
+                return urls;
+            } catch (error) {
+                console.error("Error generating image URLs:", error);
+                return [];
+            }
+        };
+
+        const exploreDeal = async note => {
+            try {
+                let links;
+                if (note.type === "normal") {
+                    links = generateImageUrl(note);
+                } else {
+                    links = generateVideoUrl(note);
+                }
+                if (links.length > 0) {
+                    console.info("无水印文件下载链接", links);
+                    const name = extractName();
+                    const detail_info = extractDocument();
+                    const content = extractDescription();
+                    const folderName = name;
+                    await createFolder(folderName);
+                    await download(links, note.type, folderName);
+                    await generateCsv(folderName, detail_info.title, links, content);
+                } else {
+                    abnormal();
+                }
+            } catch (error) {
+                console.error("Error in deal function:", error);
+                abnormal();
+            }
+        };
+
+        const download = async (urls, type_, folderName) => {
+            const name = extractName();
+            const progressElements = createProgressBar();
+            if (type_ === "video") {
+                await downloadVideo(urls[0], `${folderName}/${name}.mp4`, progressElements);
+            } else {
+                await downloadImage(urls, folderName, name, progressElements);
+            }
+            progressElements.container.remove();
+        };
+
+
+        const extractName = () => {
+            let name = document.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, "");
+            let match = window.location.href.match(/\/([^\/]+)$/);
+            let id = match ? match[1] : null;
+            return name === "" ? id : name;
+        };
+
+        const extractDocument = () => {
+            let detail_info = document;
+            return detail_info;
+        };
+
+        const extractDescription = () => {
+            const metaTags = document.getElementsByTagName('meta');
+            for (let i = 0; i < metaTags.length; i++) {
+                if (metaTags[i].getAttribute('name') === 'description') {
+                    return metaTags[i].getAttribute('content');
+                }
+            }
+            return null;
+        };
+
+        const createProgressBar = () => {
+            const progressBarContainer = document.createElement('div');
+            progressBarContainer.style.position = 'fixed';
+            progressBarContainer.style.top = '10px';
+            progressBarContainer.style.left = '10px';
+            progressBarContainer.style.width = '300px';
+            progressBarContainer.style.backgroundColor = '#f0f0f0';
+            progressBarContainer.style.borderRadius = '5px';
+            progressBarContainer.style.padding = '5px';
+            progressBarContainer.style.zIndex = '9999';
+
+            const progressBar = document.createElement('div');
+            progressBar.style.width = '0%';
+            progressBar.style.height = '20px';
+            progressBar.style.backgroundColor = '#4CAF50';
+            progressBar.style.borderRadius = '5px';
+            progressBar.style.transition = 'width 0.5s';
+
+            const progressText = document.createElement('div');
+            progressText.style.textAlign = 'center';
+            progressText.style.marginTop = '5px';
+
+            progressBarContainer.appendChild(progressBar);
+            progressBarContainer.appendChild(progressText);
+            document.body.appendChild(progressBarContainer);
+
+            return { container: progressBarContainer, bar: progressBar, text: progressText };
+        };
+
+        const updateProgressBar = (progress, progressElements) => {
+            progressElements.bar.style.width = `${progress}%`;
+            progressElements.text.textContent = `下载进度: ${progress.toFixed(2)}%`;
+        };
+
+        const downloadFile = async (link, filename, progressElements, totalFiles, currentFileIndex) => {
+            try {
+                let response = await fetch(link, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/octet-stream',
+                        'Referer': window.location.href,
+                        'User-Agent': navigator.userAgent
+                    }
+                });
+                if (!response.ok) {
+                    console.error(`请求失败，状态码: ${response.status}`, response.status);
+                    return false;
+                }
+                const reader = response.body.getReader();
+                const contentLength = +response.headers.get('Content-Length');
+                let receivedLength = 0;
+                let chunks = [];
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    receivedLength += value.length;
+                    const fileProgress = (receivedLength / contentLength) * 100;
+                    const overallProgress = ((currentFileIndex - 1 + fileProgress / 100) / totalFiles) * 100;
+                    updateProgressBar(overallProgress, progressElements);
+                }
+
+                let blob = new Blob(chunks);
+                let blobUrl = window.URL.createObjectURL(blob);
+                let tempLink = document.createElement('a');
+                tempLink.href = blobUrl;
+                tempLink.download = filename;
+                tempLink.click();
+                window.URL.revokeObjectURL(blobUrl);
+                return true;
+            } catch (error) {
+                console.error(`下载失败 (${filename}):`, error);
+                return false;
+            }
+        };
+
+        const downloadVideo = async (url, filename, progressElements) => {
+            if (!await downloadFile(url, filename, progressElements, 1, 1)) {
+                abnormal();
+            }
+        };
+
+        const downloadImage = async (urls, folderName, name, progressElements) => {
+            let result = [];
+            for (const [index, url] of urls.entries()) {
+                result.push(await downloadFile(url, `${folderName}/${name}_${index + 1}.png`, progressElements, urls.length, index + 1));
+            }
+            if (!result.every(item => item === true)) {
+                abnormal();
+            }
+        };
+
+        const createFolder = async (folderName) => {
+            unsafeWindow.webkitRequestFileSystem(window.TEMPORARY, 1024 * 1024, fs => {
+                fs.root.getDirectory(folderName, { create: true }, dirEntry => {
+                    console.log('Directory created successfully:', dirEntry);
+                }, error => {
+                    console.error('Error creating directory:', error);
+                });
+            }, error => {
+                console.error('Error requesting file system:', error);
+            });
+        };
+
+        const generateCsv = async (folderName, title, links, content) => {
+            const csvContent = "标题,媒体无水印链接,内容\n" +
+                  links.map(link => `"${title}","${link}","${content}"`).join("\n");
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const blobUrl = window.URL.createObjectURL(blob);
+            let tempLink = document.createElement('a');
+            tempLink.href = blobUrl;
+            tempLink.download = `${folderName}/文案.csv`;
+            tempLink.click();
+            window.URL.revokeObjectURL(blobUrl);
+        };
+
+        const extractNoteInfo = () => {
+            const noteId = window.location.pathname.split('/').pop();
+            if (win.__INITIAL_STATE__ && win.__INITIAL_STATE__.note && win.__INITIAL_STATE__.note.noteDetailMap) {
+                return win.__INITIAL_STATE__.note.noteDetailMap[noteId];
+            } else {
+                console.error("__INITIAL_STATE__ 或 noteDetailMap 未定义");
+                return null;
+            }
+        };
+
+        const extractDownloadLinks = async () => {
+            let note = extractNoteInfo();
+            if (note && note.note) {
+                await exploreDeal(note.note);
+            } else {
+                abnormal();
+            }
+        };
+        extractDownloadLinks();
+    });
 })();
