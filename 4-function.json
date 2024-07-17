@@ -97,14 +97,27 @@
     `;
     document.body.appendChild(helper);
 
-    const extractNoteInfo = (iframeWindow) => {
-        if (iframeWindow && iframeWindow.INITIAL_STATE && iframeWindow.INITIAL_STATE.note && iframeWindow.INITIAL_STATE.note.noteDetailMap) {
-            const noteId = iframeWindow.location.pathname.split('/').pop();
-            return iframeWindow.INITIAL_STATE.note.noteDetailMap[noteId];
-        }
-        console.error("无法从iframe获取INITIAL_STATE或noteDetailMap");
-        return null;
-    };
+const extractNoteInfo = (iframeWindow) => {
+    return new Promise((resolve) => {
+        const checkInitialState = () => {
+            if (iframeWindow && iframeWindow.__INITIAL_STATE__) {
+                const noteId = iframeWindow.location.pathname.split('/').pop();
+                console.log(noteId)
+                console.log(iframeWindow.__INITIAL_STATE__)
+                if (iframeWindow.__INITIAL_STATE__.note && iframeWindow.__INITIAL_STATE__.note.noteDetailMap && iframeWindow.__INITIAL_STATE__.note.noteDetailMap[noteId]) {
+                    resolve(iframeWindow.__INITIAL_STATE__.note.noteDetailMap[noteId]);
+                } else {
+                    console.error("无法在__INITIAL_STATE__中找到noteDetailMap或特定noteId");
+                    resolve(null);
+                }
+            } else {
+                // 如果还没加载完，等待一段时间后再次检查
+                setTimeout(checkInitialState, 100);
+            }
+        };
+        checkInitialState();
+    });
+};
 
     const extractAllNoteInfo = () => {
         if (win.__INITIAL_STATE__ && win.__INITIAL_STATE__.search && win.__INITIAL_STATE__.search.feeds && win.__INITIAL_STATE__.search.feeds._rawValue) {
