@@ -424,24 +424,6 @@
         // 调用显示函数（可以根据需要在适当的时机调用）
         setTimeout(showContainer, 500);
 
-        const normalOption = document.createElement('button');
-        normalOption.textContent = '正常获取';
-        normalOption.style.cssText = `
-            display: block;
-            width: 100%;
-            margin-bottom: 15px;
-            padding: 10px;
-            border: 1px solid #64ffda;
-            background-color: transparent;
-            color: #64ffda;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 16px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        `;
-
         const filterOption = document.createElement('div');
         filterOption.style.display = 'block';
 
@@ -487,15 +469,13 @@
         `;
 
         // 添加悬停效果
-        [normalOption, filterButton].forEach(button => {
-            button.addEventListener('mouseover', () => {
-                button.style.backgroundColor = 'rgba(100, 255, 218, 0.1)';
-                button.style.transform = 'translateY(-2px)';
-            });
-            button.addEventListener('mouseout', () => {
-                button.style.backgroundColor = 'transparent';
-                button.style.transform = 'translateY(0)';
-            });
+        filterButton.addEventListener('mouseover', () => {
+            filterButton.style.backgroundColor = 'rgba(100, 255, 218, 0.1)';
+            filterButton.style.transform = 'translateY(-2px)';
+        });
+        filterButton.addEventListener('mouseout', () => {
+            filterButton.style.backgroundColor = 'transparent';
+            filterButton.style.transform = 'translateY(0)';
         });
 
         filterInput.addEventListener('focus', () => {
@@ -511,16 +491,10 @@
         filterOption.appendChild(filterInput);
         filterOption.appendChild(filterButton);
 
-        optionContainer.appendChild(normalOption);
         optionContainer.appendChild(filterOption);
 
         // 添加到body
         document.body.appendChild(optionContainer);
-
-        normalOption.addEventListener('click', async () => {
-            document.body.removeChild(optionContainer);
-            await fetchNotes();
-        });
 
         filterButton.addEventListener('click', async () => {
             const filterKeywords = filterInput.value.split('|').map(keyword => keyword.trim());
