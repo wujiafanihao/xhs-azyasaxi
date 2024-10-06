@@ -12,6 +12,8 @@
 // @grant        GM_download
 // @grant        GM_xmlhttpRequest
 // @author       wujiafa azyasaxi
+// @updateURL    https://raw.githubusercontent.com/wujiafanihao/xhs-azyasaxi/refs/heads/main/xhs_update.js
+// @downloadURL  https://raw.githubusercontent.com/wujiafanihao/xhs-azyasaxi/refs/heads/main/xhs_update.js
 // ==/UserScript==
 
 (function () {
