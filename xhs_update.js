@@ -16,23 +16,6 @@
 // @downloadURL  https://raw.githubusercontent.com/wujiafanihao/xhs-azyasaxi/refs/heads/main/xhs_update.js
 // ==/UserScript==
 
-// ==UserScript==
-// @name         小红书助手
-// @namespace    http://tampermonkey.net/
-// @version      0.4
-// @description  小红书探索页面增强工具
-// @match        http*://xhslink.com/*
-// @match        http*://www.xiaohongshu.com/explore*
-// @match        http*://www.xiaohongshu.com/user/profile/*
-// @match        http*://www.xiaohongshu.com/search_result*
-// @grant        unsafeWindow
-// @grant        GM_download
-// @grant        GM_xmlhttpRequest
-// @author       wujiafa azyasaxi
-// @updateURL    https://raw.githubusercontent.com/wujiafanihao/xhs-azyasaxi/refs/heads/main/xhs_update.js
-// @downloadURL  https://raw.githubusercontent.com/wujiafanihao/xhs-azyasaxi/refs/heads/main/xhs_update.js
-// ==/UserScript==
-
 (function () {
     'use strict';
 
