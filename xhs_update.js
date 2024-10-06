@@ -122,279 +122,10 @@
         <div id="xhs-helper-icon"></div>
     </div>
     <div id="xhs-helper-menu">
-        <div class="xhs-helper-item" id="extract-user-info">提取用户信息</div>
         <div class="xhs-helper-item" id="all-note-info">获取搜索页面目前文章</div>
             </div>
     `;
     document.body.appendChild(helper);
-    //提取用户信息
-    document.getElementById('extract-user-info').addEventListener('click', () => {
-        createInputModal();
-
-        function createInputModal() {
-            const modal = document.createElement('div');
-            modal.id = 'user-info-modal';
-
-            const style = document.createElement('style');
-            style.textContent = `
-#user-info-modal {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: #0a192f;
-    padding: 40px;
-    border-radius: 15px;
-    box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
-    z-index: 10000;
-    font-family: 'Roboto', 'Arial', sans-serif;
-    max-width: 90%;
-    width: 450px;
-    color: #64ffda;
-    border: 1px solid #64ffda;
-    transition: all 0.3s ease;
-}
-
-#user-info-modal h2 {
-    margin-top: 0;
-    color: #64ffda;
-    font-size: 28px;
-    margin-bottom: 25px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-}
-
-#user-info-modal textarea {
-    width: 100%;
-    padding: 12px;
-    background-color: #172a45;
-    border: 1px solid #64ffda;
-    border-radius: 8px;
-    resize: vertical;
-    font-size: 16px;
-    color: #8892b0;
-    transition: all 0.3s ease;
-}
-
-#user-info-modal textarea:focus {
-    outline: none;
-    box-shadow: 0 0 10px rgba(100, 255, 218, 0.5);
-}
-
-#user-info-modal button {
-    padding: 12px 24px;
-    margin-top: 20px;
-    border: 1px solid #64ffda;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    background-color: transparent;
-    color: #64ffda;
-}
-
-#extract-users {
-    margin-right: 15px;
-}
-
-#extract-users:hover, #close-modal:hover {
-    background-color: rgba(100, 255, 218, 0.1);
-    transform: translateY(-2px);
-}
-
-#progress-bar-container {
-    width: 100%;
-    height: 10px;
-    background-color: #172a45;
-    margin-top: 30px;
-    border-radius: 5px;
-    overflow: hidden;
-}
-
-#progress-bar {
-    height: 100%;
-    background-color: #64ffda;
-    width: 0%;
-    transition: width 0.3s ease;
-    box-shadow: 0 0 10px rgba(100, 255, 218, 0.5);
-}
-
-@keyframes modalFadeIn {
-    from { opacity: 0; transform: translate(-50%, -60%); }
-    to { opacity: 1; transform: translate(-50%, -50%); }
-}
-
-#user-info-modal {
-    animation: modalFadeIn 0.5s ease forwards;
-}
-
-@keyframes glowing {
-    0% { box-shadow: 0 0 5px rgba(100, 255, 218, 0.5); }
-    50% { box-shadow: 0 0 20px rgba(100, 255, 218, 0.5); }
-    100% { box-shadow: 0 0 5px rgba(100, 255, 218, 0.5); }
-}
-
-#user-info-modal {
-    animation: glowing 3s infinite;
-}
-        `;
-            document.head.appendChild(style);
-
-            modal.innerHTML = `
-            <h2>输入用户ID</h2>
-            <textarea id="user-ids" rows="10" cols="50" placeholder="每行输入一个用户ID，实测50条用户稳定，100条用户页面请求可能过多导致崩溃，150条以上绝对崩溃，就按照50-100条来"></textarea>
-            <br><br>
-            <button id="extract-users">提取用户信息</button>
-            <button id="close-modal">关闭</button>
-            <div id="progress-bar-container">
-                <div id="progress-bar"></div>
-            </div>
-        `;
-            document.body.appendChild(modal);
-
-            modal.addEventListener('click', function (event) {
-                if (event.target.id === 'close-modal') {
-                    document.body.removeChild(modal);
-                    document.head.removeChild(style);
-                } else if (event.target.id === 'extract-users') {
-                    const userIds = document.getElementById('user-ids').value.split('\n').filter(id => id.trim());
-                    extractMultipleUserInfo(userIds);
-                }
-            });
-
-            const buttons = modal.querySelectorAll('button');
-            buttons.forEach(button => {
-                button.addEventListener('mousedown', function () {
-                    this.style.transform = 'scale(0.95)';
-                });
-                button.addEventListener('mouseup', function () {
-                    this.style.transform = 'scale(1)';
-                });
-                button.addEventListener('mouseleave', function () {
-                    this.style.transform = 'scale(1)';
-                });
-            });
-        }
-
-        async function extractMultipleUserInfo(userIds) {
-            const userInfoList = [];
-            const total = userIds.length;
-            let processed = 0;
-            const progressBar = document.getElementById('progress-bar');
-
-            for (const userId of userIds) {
-                try {
-                    const userInfo = await simulateUserPageVisit(userId);
-                    if (userInfo) {
-                        userInfoList.push(userInfo);
-                    }
-                } catch (error) {
-                    console.error(`提取用户 ${userId} 信息时出错:`, error);
-                } finally {
-                    processed++;
-                    const progress = (processed / total) * 100;
-                    progressBar.style.width = `${progress}%`;
-                }
-            }
-
-            console.log('提取的用户信息:', userInfoList);
-            if (userInfoList.length > 0) {
-                saveToCSV(userInfoList);
-            } else {
-                console.log('没有成功提取任何用户信息');
-            }
-        }
-
-        async function simulateUserPageVisit(userId) {
-            return new Promise((resolve, reject) => {
-                const url = `https://www.xiaohongshu.com/user/profile/${userId}`;
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = url;
-                document.body.appendChild(iframe);
-
-                iframe.onload = () => {
-                    try {
-                        const userInfo = iframe.contentWindow.__INITIAL_STATE__.user.userPageData._rawValue;
-                        const extractedInfo = extractUserDetails(userInfo);
-                        document.body.removeChild(iframe);
-                        resolve(extractedInfo);
-                    } catch (error) {
-                        document.body.removeChild(iframe);
-                        reject(error);
-                    }
-                };
-
-                iframe.onerror = (error) => {
-                    document.body.removeChild(iframe);
-                    reject(error);
-                };
-
-                setTimeout(() => {
-                    if (document.body.contains(iframe)) {
-                        document.body.removeChild(iframe);
-                        reject(new Error(`提取用户 ${userId} 信息超时`));
-                    }
-                }, 10000);
-            });
-        }
-
-        function extractUserDetails(userInfo) {
-            if (userInfo && userInfo.basicInfo && userInfo.basicInfo.redId) {
-                const basicInfo = userInfo.basicInfo;
-                const interactions = userInfo.interactions;
-                const tags = userInfo.tags;
-
-                const locationTag = tags.find(tag => tag.tagType === 'location');
-
-                return {
-                    nickname: basicInfo.nickname,
-                    gender: basicInfo.gender === 1 ? '女' : '男',
-                    redId: basicInfo.redId,
-                    ipLocation: basicInfo.ipLocation,
-                    fans: interactions.find(i => i.type === 'fans')?.count || 0,
-                    likes: interactions.find(i => i.type === 'likes')?.count || 0,
-                    location: locationTag ? locationTag.name : '未知'
-                };
-            }
-            return null;
-        }
-
-        function saveToCSV(userInfoList) {
-            const headers = ['用户名', '性别', '小红书ID', 'IP位置', '粉丝', '获赞', '居住地'];
-            const csvRows = [headers.join(',')];
-
-            for (const user of userInfoList) {
-                if (user) {
-                    const row = [
-                        `"${user.nickname.replace(/"/g, '""')}"`,
-                        user.gender,
-                        user.redId,
-                        `"${user.ipLocation.replace(/"/g, '""')}"`,
-                        user.fans,
-                        user.likes,
-                        `"${user.location.replace(/"/g, '""')}"`
-                    ];
-                    csvRows.push(row.join(','));
-                }
-            }
-
-            const csvContent = '\ufeff' + csvRows.join('\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'user_info.csv';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-    });
 
     //一键获取
     document.getElementById('all-note-info').addEventListener('click', async () => {
@@ -453,7 +184,7 @@
 
         const filterLabel = createLabel('匹配字符获取:');
         const filterInput = createInput('text', '以|分割多个关键词');
-
+        
         const timeRangeLabel = createLabel('评论时间范围（天）:');
         const timeRangeInput = createInput('number', '30');
         timeRangeInput.value = '30';
@@ -592,14 +323,13 @@
                     const currentTime = noteInfo.currentTime;
                     const comments = noteInfo.comments.list.map(comment => {
                         const timeDifference = calculateTimeDifference(comment.createTime, currentTime);
-                        // 计算评论距离当前的天数差
                         const daysDifference = Math.floor((currentTime - comment.createTime) / (1000 * 60 * 60 * 24));
                         return {
                             content: comment.content,
                             createTime: comment.createTime,
                             timeDifference: timeDifference,
                             daysDifference: daysDifference, // 新增：将天数差添加到返回对象中
-                            ipLocation: comment.ipLocation,
+
                             userInfo: {
                                 nickname: comment.userInfo.nickname,
                                 userId: comment.userInfo.userId
@@ -613,19 +343,7 @@
                         return filterKeywords.some(keyword => comment.content.includes(keyword));
                     });
                     const noteDetails = {
-                        desc: noteInfo.note.desc,
-                        time: noteInfo.note.time,
-                        title: noteInfo.note.title,
-                        ipLocation: noteInfo.note.ipLocation,
-                        interactInfo: {
-                            collectedCount: noteInfo.note.interactInfo.collectedCount,
-                            commentCount: noteInfo.note.interactInfo.commentCount,
-                            likedCount: noteInfo.note.interactInfo.likedCount,
-                            shareCount: noteInfo.note.interactInfo.shareCount
-                        },
-                        user: {
-                            nickname: noteInfo.note.user.nickname
-                        }
+                        title: noteInfo.note.title
                     };
 
                     return {
@@ -674,14 +392,142 @@
                 }
             };
 
-            const saveAllToCSV = (comments, timeRange) => {
-                let csvContent = "\uFEFF内容,发布时间,时间差,IP位置,用户昵称,用户ID,笔记标题\n";
+            async function simulateUserPageVisit(userId) {
+                return new Promise((resolve, reject) => {
+                    const url = `https://www.xiaohongshu.com/user/profile/${userId}`;
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = url;
+                    document.body.appendChild(iframe);
+    
+                    iframe.onload = () => {
+                        try {
+                            const userInfo = iframe.contentWindow.__INITIAL_STATE__.user.userPageData._rawValue;
+                            const extractedInfo = extractUserDetails(userInfo);
+                            document.body.removeChild(iframe);
+                            resolve(extractedInfo);
+                        } catch (error) {
+                            document.body.removeChild(iframe);
+                            reject(error);
+                        }
+                    };
+    
+                    iframe.onerror = (error) => {
+                        document.body.removeChild(iframe);
+                        reject(error);
+                    };
+    
+                    setTimeout(() => {
+                        if (document.body.contains(iframe)) {
+                            document.body.removeChild(iframe);
+                            reject(new Error(`提取用户 ${userId} 信息超时`));
+                        }
+                    }, 10000);
+                });
+            }
+    
+            function extractUserDetails(userInfo) {
+                if (userInfo && userInfo.basicInfo && userInfo.basicInfo.redId) {
+                    const basicInfo = userInfo.basicInfo;
+                    return {
+                        gender: basicInfo.gender === 1 ? '女' : '男',
+                        redId: basicInfo.redId,
+                    };
+                }
+                return null;
+            }
+
+            const saveAllToCSV = async (comments, timeRange) => {
+                let csvContent = "\uFEFF内容,发布时间,时间差,用户昵称,用户ID,小红书ID,性别,笔记标题\n";
+                const uniqueUserIds = new Set();
+
+                // 收集符合条件的用户ID
                 comments.forEach(comment => {
-                    // 修改：只保存10天内的评论
                     if (comment.daysDifference <= timeRange) {
-                        csvContent += `"${comment.content.replace(/"/g, '""')}","${comment.createTime}","${comment.timeDifference}","${comment.ipLocation}","${comment.userInfo.nickname.replace(/"/g, '""')}","${comment.userInfo.userId}","${comment.noteTitle.replace(/"/g, '""')}"\n`;
+                        uniqueUserIds.add(comment.userInfo.userId);
                     }
                 });
+
+                // 创建用户信息获取进度条容器
+                const userProgressContainer = document.createElement('div');
+                userProgressContainer.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 300px;
+                    background-color: #0a192f;
+                    border: 1px solid #64ffda;
+                    border-radius: 10px;
+                    padding: 15px;
+                    z-index: 1000;
+                    box-shadow: 0 0 20px rgba(100, 255, 218, 0.3);
+                    font-family: 'Arial', sans-serif;
+                `;
+
+                const progressText = document.createElement('div');
+                progressText.textContent = '正在获取用户信息...';
+                progressText.style.cssText = `
+                    color: #64ffda;
+                    margin-bottom: 10px;
+                    font-size: 14px;
+                    text-align: center;
+                `;
+
+                const userProgressBar = document.createElement('div');
+                userProgressBar.style.cssText = `
+                    width: 100%;
+                    height: 5px;
+                    background-color: #172a45;
+                    border-radius: 5px;
+                    overflow: hidden;
+                `;
+
+                const userProgressFill = document.createElement('div');
+                userProgressFill.style.cssText = `
+                    width: 0%;
+                    height: 100%;
+                    background-color: #64ffda;
+                    transition: width 0.3s ease;
+                `;
+
+                userProgressBar.appendChild(userProgressFill);
+                userProgressContainer.appendChild(progressText);
+                userProgressContainer.appendChild(userProgressBar);
+                document.body.appendChild(userProgressContainer);
+
+                // 获取用户详细信息
+                const userDetailsMap = new Map();
+                let processedUsers = 0;
+                for (const userId of uniqueUserIds) {
+                    try {
+                        const userDetails = await simulateUserPageVisit(userId);
+                        if (userDetails) {
+                            userDetailsMap.set(userId, userDetails);
+                        }
+                    } catch (error) {
+                        console.error(`获取用户 ${userId} 信息失败:`, error);
+                    }
+                    processedUsers++;
+                    // 更新用户信息获取进度条
+                    const progress = (processedUsers / uniqueUserIds.size) * 100;
+                    userProgressFill.style.width = `${progress}%`;
+                    progressText.textContent = `正在获取用户信息... ${Math.round(progress)}%`;
+                }
+
+                // 移除用户信息获取进度条
+                setTimeout(() => {
+                    document.body.removeChild(userProgressContainer);
+                }, 2000);
+
+                // 生成CSV内容
+                for (const comment of comments) {
+                    if (comment.daysDifference <= timeRange) {
+                        const userDetails = userDetailsMap.get(comment.userInfo.userId) || { redId: 'N/A', gender: 'N/A' };
+                        csvContent += `"${comment.content.replace(/"/g, '""')}","${comment.createTime}","${comment.timeDifference}","${comment.userInfo.nickname.replace(/"/g, '""')}","${comment.userInfo.userId}","${userDetails.redId}","${userDetails.gender}","${comment.noteTitle.replace(/"/g, '""')}"\n`;
+                    }
+                }
+
                 downloadCSV(csvContent, `filtered_comments.csv`);
             };
 
