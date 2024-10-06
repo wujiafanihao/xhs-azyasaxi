@@ -398,13 +398,12 @@
 
     //一键获取
     document.getElementById('all-note-info').addEventListener('click', async () => {
-
         const optionContainer = document.createElement('div');
         optionContainer.style.cssText = `
             position: fixed;
             top: 100px;
-            right: -250px;
-            width: 250px;
+            right: -300px;
+            width: 280px;
             background-color: #0a192f;
             border: 1px solid #64ffda;
             border-radius: 10px;
@@ -415,41 +414,50 @@
             color: #64ffda;
             font-family: 'Roboto', sans-serif;
         `;
+        document.body.appendChild(optionContainer);
 
-        // 显示容器的函数
-        function showContainer() {
+        setTimeout(() => {
             optionContainer.style.right = '10px';
-        }
+        }, 100);
 
-        // 调用显示函数（可以根据需要在适当的时机调用）
-        setTimeout(showContainer, 500);
+        const createLabel = (text) => {
+            const label = document.createElement('label');
+            label.textContent = text;
+            label.style.cssText = `
+                display: block;
+                margin-bottom: 10px;
+                font-size: 14px;
+                color: #8892b0;
+            `;
+            return label;
+        };
 
-        const filterOption = document.createElement('div');
-        filterOption.style.display = 'block';
+        const createInput = (type, placeholder) => {
+            const input = document.createElement('input');
+            input.type = type;
+            input.placeholder = placeholder;
+            input.style.cssText = `
+                display: block;
+                width: 100%;
+                margin-bottom: 15px;
+                padding: 10px;
+                background-color: #172a45;
+                border: 1px solid #64ffda;
+                border-radius: 5px;
+                color: #64ffda;
+                font-size: 14px;
+                transition: all 0.3s ease;
+            `;
+            return input;
+        };
 
-        const filterLabel = document.createElement('label');
-        filterLabel.textContent = '匹配字符获取:';
-        filterLabel.style.cssText = `
-            display: block;
-            margin-bottom: 10px;
-            font-size: 14px;
-            color: #8892b0;
-        `;
-
-        const filterInput = document.createElement('input');
-        filterInput.type = 'text';
-        filterInput.style.cssText = `
-            display: block;
-            width: 100%;
-            margin-bottom: 15px;
-            padding: 10px;
-            background-color: #172a45;
-            border: 1px solid #64ffda;
-            border-radius: 5px;
-            color: #64ffda;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        `;
+        const filterLabel = createLabel('匹配字符获取:');
+        const filterInput = createInput('text', '以|分割多个关键词');
+        
+        const timeRangeLabel = createLabel('评论时间范围（天）:');
+        const timeRangeInput = createInput('number', '30');
+        timeRangeInput.value = '30';
+        timeRangeInput.min = '1';
 
         const filterButton = document.createElement('button');
         filterButton.textContent = '筛选获取，以|分割';
@@ -478,71 +486,74 @@
             filterButton.style.transform = 'translateY(0)';
         });
 
-        filterInput.addEventListener('focus', () => {
-            filterInput.style.boxShadow = '0 0 10px rgba(100, 255, 218, 0.5)';
-        });
+        const progressContainer = document.createElement('div');
+        progressContainer.style.cssText = `
+            width: 100%;
+            height: 5px;
+            background-color: #172a45;
+            margin-top: 15px;
+            border-radius: 5px;
+            overflow: hidden;
+        `;
 
-        filterInput.addEventListener('blur', () => {
-            filterInput.style.boxShadow = 'none';
-        });
+        const progressBar = document.createElement('div');
+        progressBar.style.cssText = `
+            width: 0%;
+            height: 100%;
+            background-color: #64ffda;
+            transition: width 0.3s ease;
+        `;
 
-        // 将元素添加到容器中
-        filterOption.appendChild(filterLabel);
-        filterOption.appendChild(filterInput);
-        filterOption.appendChild(filterButton);
+        progressContainer.appendChild(progressBar);
 
-        optionContainer.appendChild(filterOption);
-
-        // 添加到body
-        document.body.appendChild(optionContainer);
+        optionContainer.appendChild(filterLabel);
+        optionContainer.appendChild(filterInput);
+        optionContainer.appendChild(timeRangeLabel);
+        optionContainer.appendChild(timeRangeInput);
+        optionContainer.appendChild(filterButton);
+        optionContainer.appendChild(progressContainer);
 
         filterButton.addEventListener('click', async () => {
             const filterKeywords = filterInput.value.split('|').map(keyword => keyword.trim());
+            const timeRange = parseInt(timeRangeInput.value, 10) || 30;
+            await fetchNotes(filterKeywords, timeRange, progressBar);
             document.body.removeChild(optionContainer);
-            await fetchNotes(filterKeywords);
         });
 
         function infosimulateScroll() {
             return new Promise((resolve) => {
-                let scrollAttempts = 0;
-                const maxScrollAttempts = 10;  // 增加最大尝试次数
-                const scrollInterval = 100;  // 滚动间隔时间（毫秒）
-                const loadCheckInterval = 100;  // 检查新内容的间隔时间（毫秒）
+                let lastHeight = 0;
+                let noChangeCount = 0;
+                const maxNoChangeCount = 5;
+                const scrollInterval = 500;  // 滚动间隔时间（毫秒）
+                const heightCheckInterval = 200;  // 高度检查间隔（毫秒）
 
-                function triggerScroll() {
-                    if (scrollAttempts >= maxScrollAttempts) {
-                        console.log("达到最大滚动次数，停止加载");
-                        resolve();
-                        return;
-                    }
-
-                    // 滚动到页面底部
-                    window.scrollTo(0, document.documentElement.scrollHeight);
-                    scrollAttempts++;
-
-                    // 触发滚动事件
-                    window.dispatchEvent(new Event('scroll'));
-
-                    setTimeout(() => {
-                        const currentHeight = document.documentElement.scrollHeight;
-                        if (currentHeight > lastHeight) {
-                            console.log(`新内容加载中，当前高度: ${currentHeight}`);
-                            lastHeight = currentHeight;
-                            setTimeout(triggerScroll, loadCheckInterval);
+                function checkHeight() {
+                    const currentHeight = document.documentElement.scrollHeight;
+                    if (currentHeight > lastHeight) {
+                        console.log(`新内容加载中，当前高度: ${currentHeight}`);
+                        lastHeight = currentHeight;
+                        noChangeCount = 0;
+                        window.scrollTo(0, currentHeight);
+                        setTimeout(checkHeight, heightCheckInterval);
+                    } else {
+                        noChangeCount++;
+                        if (noChangeCount >= maxNoChangeCount) {
+                            console.log("检测到页面高度不再变化，停止滚动");
+                            resolve();
                         } else {
-                            console.log("检测是否还有新内容...");
-                            // 再次尝试滚动，以确保没有更多内容
-                            setTimeout(triggerScroll, scrollInterval);
+                            console.log(`高度未变化，继续检查 (${noChangeCount}/${maxNoChangeCount})`);
+                            setTimeout(checkHeight, scrollInterval);
                         }
-                    }, loadCheckInterval);
+                    }
                 }
 
-                let lastHeight = document.documentElement.scrollHeight;
-                triggerScroll();
+                window.scrollTo(0, document.documentElement.scrollHeight);
+                setTimeout(checkHeight, heightCheckInterval);
             });
         }
 
-        async function fetchNotes(filterKeywords = []) {
+        async function fetchNotes(filterKeywords, timeRange, progressBar) {
             await infosimulateScroll();
             const allFilteredComments = [];
 
@@ -576,19 +587,28 @@
                 return null;
             };
 
-            const extractCommentDetails = (noteInfo, filterKeywords) => {
+            const extractCommentDetails = (noteInfo, filterKeywords, timeRange) => {
                 if (noteInfo && noteInfo.comments && noteInfo.comments.list) {
                     const currentTime = noteInfo.currentTime;
-                    const comments = noteInfo.comments.list.map(comment => ({
-                        content: comment.content,
-                        createTime: comment.createTime,
-                        timeDifference: calculateTimeDifference(comment.createTime, currentTime),
-                        ipLocation: comment.ipLocation,
-                        userInfo: {
-                            nickname: comment.userInfo.nickname,
-                            userId: comment.userInfo.userId
+                    const comments = noteInfo.comments.list.map(comment => {
+                        const timeDifference = calculateTimeDifference(comment.createTime, currentTime);
+                        // 计算评论距离当前的天数差
+                        const daysDifference = Math.floor((currentTime - comment.createTime) / (1000 * 60 * 60 * 24));
+                        return {
+                            content: comment.content,
+                            createTime: comment.createTime,
+                            timeDifference: timeDifference,
+                            daysDifference: daysDifference, // 新增：将天数差添加到返回对象中
+                            ipLocation: comment.ipLocation,
+                            userInfo: {
+                                nickname: comment.userInfo.nickname,
+                                userId: comment.userInfo.userId
+                            }
+                        };
+                    }).filter(comment => {
+                        if (comment.daysDifference > timeRange) {
+                            return false;
                         }
-                    })).filter(comment => {
                         if (filterKeywords.length === 0) return true;
                         return filterKeywords.some(keyword => comment.content.includes(keyword));
                     });
@@ -634,11 +654,11 @@
                 return '刚刚';
             }
 
-            const extractAndAccumulateDetails = async (iframeWindow, filterKeywords) => {
+            const extractAndAccumulateDetails = async (iframeWindow, filterKeywords, timeRange) => {
                 const noteInfo = await extractNoteInfo(iframeWindow);
                 console.log(noteInfo);
                 if (noteInfo) {
-                    const details = extractCommentDetails(noteInfo, filterKeywords);
+                    const details = extractCommentDetails(noteInfo, filterKeywords, timeRange);
                     if (details.comments.length > 0) {
                         // 添加笔记标题到每条评论
                         const commentsWithTitle = details.comments.map(comment => ({
@@ -657,7 +677,10 @@
             const saveAllToCSV = (comments) => {
                 let csvContent = "\uFEFF内容,发布时间,时间差,IP位置,用户昵称,用户ID,笔记标题\n";
                 comments.forEach(comment => {
-                    csvContent += `"${comment.content.replace(/"/g, '""')}","${comment.createTime}","${comment.timeDifference}","${comment.ipLocation}","${comment.userInfo.nickname.replace(/"/g, '""')}","${comment.userInfo.userId}","${comment.noteTitle.replace(/"/g, '""')}"\n`;
+                    // 修改：只保存10天内的评论
+                    if (comment.daysDifference <= 10) {
+                        csvContent += `"${comment.content.replace(/"/g, '""')}","${comment.createTime}","${comment.timeDifference}","${comment.ipLocation}","${comment.userInfo.nickname.replace(/"/g, '""')}","${comment.userInfo.userId}","${comment.noteTitle.replace(/"/g, '""')}"\n`;
+                    }
                 });
                 downloadCSV(csvContent, `filtered_comments.csv`);
             };
@@ -686,10 +709,10 @@
                     }
 
                     let previousHeight = 0;
-                    let scrollCount = 0;
-                    const maxScrolls = 2;
+                    let noChangeCount = 0;
+                    const maxNoChangeCount = 5;
                     const scrollStep = 5000; // 每次滚动的步长
-                    const waitTime = 2500; // 每次滚动后等待的时间
+                    const waitTime = 1250; // 每次滚动后等待的时间
 
                     const scrollPage = () => {
                         if (shouldStop) {
@@ -700,29 +723,29 @@
                         noteContainer.scrollTop += scrollStep;
                         const currentHeight = noteContainer.scrollHeight;
 
-                        console.log(`当前高度: ${currentHeight}, 之前高度: ${previousHeight}`); // 添加调试信息
+                        console.log(`当前高度: ${currentHeight}, 之前高度: ${previousHeight}`);
 
                         if (currentHeight > previousHeight) {
                             previousHeight = currentHeight;
-                            scrollCount = 0; // 重置滚动次数
+                            noChangeCount = 0; // 重置不变计数
                         } else {
-                            scrollCount++;
-                            console.log(`滚动次数: ${scrollCount}`); // 添加调试信息
-                            if (scrollCount >= maxScrolls) {
+                            noChangeCount++;
+                            console.log(`高度未变化次数: ${noChangeCount}`);
+                            if (noChangeCount >= maxNoChangeCount) {
                                 clearInterval(scrollInterval);
-                                console.log("达到最大滚动次数，开始提取数据");
+                                console.log("达到最大不变次数，开始提取数据");
                                 resolve();
                             }
                         }
                     };
 
-                    const scrollInterval = setInterval(scrollPage, waitTime); // 增加滚动间隔时间
+                    const scrollInterval = setInterval(scrollPage, waitTime);
                 });
             }
 
             let shouldStop = false; // 全局状态，用于控制是否停止获取笔记
 
-            async function simulateNotePageVisit(noteId, index, total, filterKeywords) {
+            async function simulateNotePageVisit(noteId, index, total, filterKeywords, timeRange) {
                 return new Promise((resolve, reject) => {
                     if (shouldStop) {
                         resolve();
@@ -732,74 +755,113 @@
                     const url = `https://www.xiaohongshu.com/explore/${noteId}`;
                     const container = document.createElement('div');
                     container.className = 'note-scroller';
-                    container.style.position = 'fixed';
-                    container.style.top = '50px';
-                    container.style.right = '10px';
-                    container.style.width = '500px';
-                    container.style.height = '800px';
-                    container.style.backgroundColor = '#f0f0f0';
-                    container.style.border = '1px solid #ccc';
-                    container.style.borderRadius = '10px'; // 圆角边框
-                    container.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)'; // 阴影效果
-                    container.style.padding = '10px';
-                    container.style.zIndex = '1001';
-                    container.style.overflow = 'auto';
+                    container.style.cssText = `
+                        position: fixed;
+                        top: 50px;
+                        right: -510px;
+                        width: 500px;
+                        height: 80vh;
+                        background-color: #0a192f;
+                        border: 1px solid #64ffda;
+                        border-radius: 10px;
+                        box-shadow: 0 4px 20px rgba(100, 255, 218, 0.3);
+                        padding: 20px;
+                        z-index: 1001;
+                        overflow: hidden;
+                        transition: right 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+                        font-family: 'Roboto', 'Arial', sans-serif;
+                        color: #64ffda;
+                    `;
+                    document.body.appendChild(container);
+
+                    // 使用 setTimeout 来触发动画
+                    setTimeout(() => {
+                        container.style.right = '10px';
+                    }, 100);
 
                     const title = document.createElement('h3');
                     title.textContent = `模拟访问笔记 ${index + 1}/${total}`;
+                    title.style.cssText = `
+                        margin: 0 0 15px 0;
+                        font-size: 18px;
+                        font-weight: 500;
+                        color: #64ffda;
+                    `;
                     container.appendChild(title);
 
                     const iframe = document.createElement('iframe');
-                    iframe.style.width = '100%';
-                    iframe.style.height = '800px';
-                    iframe.style.border = 'none';
+                    iframe.style.cssText = `
+                        width: 100%;
+                        height: calc(100% - 70px);
+                        border: none;
+                        border-radius: 5px;
+                        transition: opacity 0.3s ease;
+                    `;
                     iframe.src = url;
 
                     const closeButton = document.createElement('button');
                     closeButton.textContent = '终止并关闭';
-                    closeButton.style.position = 'absolute';
-                    closeButton.style.top = '10px';
-                    closeButton.style.right = '10px';
-                    closeButton.style.padding = '5px 10px';
-                    closeButton.style.border = 'none';
-                    closeButton.style.backgroundColor = '#ff4d4d';
-                    closeButton.style.color = 'white';
-                    closeButton.style.borderRadius = '5px';
-                    closeButton.style.cursor = 'pointer';
+                    closeButton.style.cssText = `
+                        position: absolute;
+                        top: 15px;
+                        right: 15px;
+                        padding: 5px 10px;
+                        border: none;
+                        background-color: #ff4d4d;
+                        color: white;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        transition: all 0.3s ease;
+                    `;
+                    closeButton.onmouseover = () => {
+                        closeButton.style.backgroundColor = '#ff6666';
+                        closeButton.style.transform = 'translateY(-2px)';
+                    };
+                    closeButton.onmouseout = () => {
+                        closeButton.style.backgroundColor = '#ff4d4d';
+                        closeButton.style.transform = 'translateY(0)';
+                    };
                     closeButton.onclick = () => {
-                        shouldStop = true; // 设置全局状态为停止
+                        shouldStop = true;
                         clearInterval(scrollInterval);
-                        document.body.removeChild(container);
+                        container.style.right = '-510px';
+                        setTimeout(() => {
+                            document.body.removeChild(container);
+                        }, 500);
                         resolve();
                     };
 
                     container.appendChild(closeButton);
                     container.appendChild(iframe);
-                    document.body.appendChild(container);
 
                     let scrollInterval;
 
                     iframe.onload = async () => {
+                        iframe.style.opacity = '1';
                         const iframeWindow = iframe.contentWindow;
                         const iframeDocument = iframeWindow.document;
 
                         scrollInterval = await simulateScroll(iframeDocument);
 
-                        // 提取笔记信息并累积
-                        await extractAndAccumulateDetails(iframeWindow, filterKeywords);
+                        await extractAndAccumulateDetails(iframeWindow, filterKeywords, timeRange);
 
                         setTimeout(() => {
-                            document.body.removeChild(container);
-                            resolve();
+                            container.style.right = '-510px';
+                            setTimeout(() => {
+                                document.body.removeChild(container);
+                                resolve();
+                            }, 500);
                         }, 2000);
                     };
 
                     iframe.onerror = (err) => {
                         console.error("加载 iframe 失败", err);
+                        container.style.right = '-510px';
                         setTimeout(() => {
                             document.body.removeChild(container);
                             reject(err);
-                        }, 2000);
+                        }, 500);
                     };
                 });
             }
@@ -809,12 +871,14 @@
                 for (let i = 0; i < allNotes.length; i++) {
                     const note = allNotes[i];
                     console.log(note.id);
-                    await simulateNotePageVisit(note.id, i, allNotes.length, filterKeywords);
+                    await simulateNotePageVisit(note.id, i, allNotes.length, filterKeywords, timeRange);
+                    // 更新进度条
+                    progressBar.style.width = `${((i + 1) / allNotes.length) * 100}%`;
                 }
                 // 在所有笔记处理完成后保存所有过滤后的评论到一个CSV文件
                 if (allFilteredComments.length > 0) {
                     saveAllToCSV(allFilteredComments);
-                    console.log("所有过滤后的评论已保存到 filtered_comments.csv");
+                    console.log("所有过滤后的评论已保存到 关键用户评论.csv");
                 } else {
                     console.log("没有匹配的评论。");
                 }
