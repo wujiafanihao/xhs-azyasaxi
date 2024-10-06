@@ -16,6 +16,23 @@
 // @downloadURL  https://raw.githubusercontent.com/wujiafanihao/xhs-azyasaxi/refs/heads/main/xhs_update.js
 // ==/UserScript==
 
+// ==UserScript==
+// @name         小红书助手
+// @namespace    http://tampermonkey.net/
+// @version      0.4
+// @description  小红书探索页面增强工具
+// @match        http*://xhslink.com/*
+// @match        http*://www.xiaohongshu.com/explore*
+// @match        http*://www.xiaohongshu.com/user/profile/*
+// @match        http*://www.xiaohongshu.com/search_result*
+// @grant        unsafeWindow
+// @grant        GM_download
+// @grant        GM_xmlhttpRequest
+// @author       wujiafa azyasaxi
+// @updateURL    https://raw.githubusercontent.com/wujiafanihao/xhs-azyasaxi/refs/heads/main/xhs_update.js
+// @downloadURL  https://raw.githubusercontent.com/wujiafanihao/xhs-azyasaxi/refs/heads/main/xhs_update.js
+// ==/UserScript==
+
 (function () {
     'use strict';
 
@@ -453,7 +470,7 @@
 
         const filterLabel = createLabel('匹配字符获取:');
         const filterInput = createInput('text', '以|分割多个关键词');
-        
+
         const timeRangeLabel = createLabel('评论时间范围（天）:');
         const timeRangeInput = createInput('number', '30');
         timeRangeInput.value = '30';
@@ -674,11 +691,11 @@
                 }
             };
 
-            const saveAllToCSV = (comments) => {
+            const saveAllToCSV = (comments, timeRange) => {
                 let csvContent = "\uFEFF内容,发布时间,时间差,IP位置,用户昵称,用户ID,笔记标题\n";
                 comments.forEach(comment => {
                     // 修改：只保存10天内的评论
-                    if (comment.daysDifference <= 10) {
+                    if (comment.daysDifference <= timeRange) {
                         csvContent += `"${comment.content.replace(/"/g, '""')}","${comment.createTime}","${comment.timeDifference}","${comment.ipLocation}","${comment.userInfo.nickname.replace(/"/g, '""')}","${comment.userInfo.userId}","${comment.noteTitle.replace(/"/g, '""')}"\n`;
                     }
                 });
@@ -877,8 +894,8 @@
                 }
                 // 在所有笔记处理完成后保存所有过滤后的评论到一个CSV文件
                 if (allFilteredComments.length > 0) {
-                    saveAllToCSV(allFilteredComments);
-                    console.log("所有过滤后的评论已保存到 关键用户评论.csv");
+                    saveAllToCSV(allFilteredComments, timeRange);
+                    console.log(`所有 ${timeRange} 天内的过滤后评论已保存到 关键用户评论.csv`);
                 } else {
                     console.log("没有匹配的评论。");
                 }
